@@ -1,7 +1,7 @@
 from datetime import datetime
 from . import db, login_manager
 from werkzeug.security import check_password_hash, generate_password_hash
-#from authlib.jose import JsonWebSignature
+from authlib.jose import JsonWebSignature
 from flask_login import UserMixin, AnonymousUserMixin
 from flask import current_app
 
@@ -19,7 +19,7 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(64), unique=True, index=True)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
     password_hash = db.Column(db.String(128))
-    confirmed = db.Column(db.Boolean, default=True) #SWITCH TO FALSE 
+    confirmed = db.Column(db.Boolean, default=False)
     name = db.Column(db.String(64))
     location = db.Column(db.String(64))
     about_me = db.Column(db.Text())
@@ -35,7 +35,6 @@ class User(UserMixin, db.Model):
             if self.role is None:
                 self.role = Role.query.filter_by(default=True).first()
 
-
     @property
     def password(self):
         raise AttributeError('password is not a readable attribute')
@@ -46,12 +45,39 @@ class User(UserMixin, db.Model):
 
     def verify_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    def generate_confirmation_token(self):
+        jws = JsonWebSignature()
+        protected = {'alg': 'HS256'}
+        payload = self.id
+        secret = current_app.config['SECRET_KEY']
+        token = jws.serialize_compact(protected, payload, secret)
+        return token
+
+    def confirm(self, token):
+        jws = JsonWebSignature()
+        try:
+            data = jws.deserialize_compact(token, current_app.config['SECRET_KEY'])
+        except:
+            return False
+
+        if int(data.get('payload').decode('UTF-8')) != self.id:
+            return False
+            
+        self.confirmed = True
+        db.session.add(self)
+        return True
     
     def can(self, perm):
         return self.role is not None and self.role.has_permission(perm)
 
     def is_administrator(self):
         return self.can(Permission.ADMIN)
+
+    def ping(self):
+        self.last_seen = datetime.utcnow()
+        db.session.add(self)
+        db.session.commit()
 
     def __repr__(self):
         return '<User %r>' % self.username
@@ -116,24 +142,3 @@ login_manager.anonymous_user = AnonymousUser
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
-
-'''
-####
-TODO:
-1. Conformition
-####
-    def generate_confirmation_token(self, expiration=3600):
-        s = Serializer(current_app.config['SECRET_KEY'], expiration)
-        return s.dumps({'confirm': self.id}).decode('utf-8')
-    def confirm(self, token):
-        s = Serializer(current_app.config['SECRET_KEY'])
-        try:
-            data = s.loads(token.encode('utf-8'))
-        except:
-            return False
-        if data.get('confirm') != self.id:
-            return False
-        self.confirmed = True
-        db.session.add(self)
-        return True
-'''
