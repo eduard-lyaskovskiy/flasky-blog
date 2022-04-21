@@ -15,5 +15,11 @@
         Click here to register
         </a>
     </p>
+    <p class="help-block">
+        Forgot password?
+        <a href="{{ url_for('auth.reset_password_request') }}">
+        Click here to reset password
+        </a>
+    </p>
 </div>
 {% endblock %}

@@ -1,10 +1,11 @@
-from flask import flash, redirect, render_template, request, url_for
+from flask import flash, redirect, render_template, request, url_for, current_app
 from flask_login import current_user, login_required, login_user, logout_user
 from . import auth
 from .. import db
 from ..models import User
 from ..email import send_email
-from .forms import LoginForm, RegistrationForm
+from .forms import LoginForm, RegistrationForm, ChangePasswordForm,\
+ResetPasswordRequestForm, ResetPasswordForm, ChangeEmailForm
 
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
@@ -47,14 +48,68 @@ def register():
                     password=form.password.data)
         db.session.add(user)
         db.session.commit()
-        token = user.generate_confirmation_token()
-        #----TODO---- 
-        #CHANGE EMAIL
-        send_email('leskov779@yandex.ru', 'Confirm Your Account', 'auth/email/confirm', user=user, token=token)
-        flash('A confirmation email has been sent to you by email.')
+        if user.email != current_app.config['FLASKY_ADMIN']:
+            token = user.generate_confirmation_token()
+            #----TODO---- 
+            #CHANGE EMAIL
+            send_email(current_app.config['CHANGE_EMAIL'], 'Confirm Your Account', 'auth/email/confirm', user=user, token=token)
+            flash('A confirmation email has been sent to you by email.')
+            return redirect(url_for('auth.login'))
         return redirect(url_for('auth.login'))
     return render_template('auth/register.html', form=form)
 
+@auth.route('/change-password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    form = ChangePasswordForm()
+    if form.validate_on_submit():
+        if current_user.verify_password(form.old_password.data):
+            current_user.password = form.new_password.data
+            db.session.add(current_user)
+            db.session.commit()
+            flash('You have been update password')
+            return redirect(url_for('main.index'))
+        flash('Passwords do not match')
+    return render_template('auth/change_password.html', form=form)
+
+@auth.route('/change-email', methods=['GET', 'POST'])
+@login_required
+def change_email():
+    form = ChangeEmailForm()
+    if form.validate_on_submit():
+        pass
+    return render_template('auth/change_email.html', form=form)
+
+@auth.route('/reset-password-request', methods=['GET', 'POST'])
+def reset_password_request():
+    if not current_user.is_anonymous:
+        return redirect(url_for('main.index'))
+    form = ResetPasswordRequestForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data.lower()).first()
+        if user:
+            token = user.generate_reset_token()
+            #----TODO----
+            #CHANGE EMAIL
+            send_email(current_app.config['CHANGE_EMAIL'], 'Reset Your Password', 
+            'auth/email/reset_password', user=user, token=token)
+        flash('An email with instructions to reset your password has been '
+              'sent to you.')
+        return redirect(url_for('auth.login'))
+    return render_template('auth/reset_password.html', form=form)
+
+@auth.route('/reset-password-request/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    if not current_user.is_anonymous:
+        return redirect(url_for('main.index'))
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        if User.reset_password(token, form.new_password.data):
+            db.session.commit()
+            flash('Your password has been updated.')
+            return redirect(url_for('auth.login'))
+        return redirect(url_for('main.index'))
+    return render_template('auth/reset_password.html', form=form)
 
 @auth.route('/confirm/<token>')
 @login_required
@@ -74,7 +129,7 @@ def resend_confirmation():
     token = current_user.generate_confirmation_token()
     #----TODO---- 
     #CHANGE EMAIL
-    send_email('leskov779@yandex.ru', 'Confirm Your Account',
+    send_email(current_app.config['CHANGE_EMAIL'], 'Confirm Your Account',
     'auth/email/confirm', user=current_user, token=token)
     flash('A new confirmation email has been sent to you by email.')
     return redirect(url_for('main.index'))

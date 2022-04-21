@@ -31,7 +31,8 @@ class User(UserMixin, db.Model):
         super(User, self).__init__(**kwargs)
         if self.role is None:
             if self.email == current_app.config['FLASKY_ADMIN']:
-                self.role = Role.query.filter_by(name='Administrator').first()
+                self.role = Role.query.filter_by(name='Admin').first()
+                self.confirmed = True
             if self.role is None:
                 self.role = Role.query.filter_by(default=True).first()
 
@@ -67,7 +68,28 @@ class User(UserMixin, db.Model):
         self.confirmed = True
         db.session.add(self)
         return True
-    
+
+    def generate_reset_token(self):
+        jws = JsonWebSignature()
+        protected = {'alg':'HS256'}
+        payload = self.id
+        secret = current_app.config['SECRET_KEY']
+        token = jws.serialize_compact(protected, payload, secret)
+        return token
+
+    def reset_password(token, new_password):
+        jws = JsonWebSignature()
+        try:
+            data = jws.deserialize_compact(token, current_app.config['SECRET_KEY'])
+        except:
+            return False       
+        user = User.query.get(int(data.get('payload').decode('UTF-8')))
+        if user is None:
+            return False
+        user.password = new_password
+        db.session.add(user)
+        return True
+
     def can(self, perm):
         return self.role is not None and self.role.has_permission(perm)
 
