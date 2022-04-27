@@ -52,7 +52,7 @@ def register():
             token = user.generate_confirmation_token()
             #----TODO---- 
             #CHANGE EMAIL
-            send_email(current_app.config['CHANGE_EMAIL'], 'Confirm Your Account', 'auth/email/confirm', user=user, token=token)
+            send_email(current_app.config['FLASKY_MAIL_SENDER'], 'Confirm Your Account', 'auth/email/confirm', user=user, token=token)
             flash('A confirmation email has been sent to you by email.')
             return redirect(url_for('auth.login'))
         return redirect(url_for('auth.login'))
@@ -74,11 +74,30 @@ def change_password():
 
 @auth.route('/change-email', methods=['GET', 'POST'])
 @login_required
-def change_email():
+def change_email_request():
     form = ChangeEmailForm()
     if form.validate_on_submit():
-        pass
+        if current_user.verify_password(form.password.data):
+            new_email = form.email.data.lower()
+            token = current_user.generate_email_change_token(new_email)
+            send_email(current_app.config['FLASKY_MAIL_SENDER'], 'Confirm your email address',
+                       'auth/email/change_email',
+                       user=current_user, token=token)
+            flash('An email with instructions to confirm your new email '
+                  'address has been sent to you.')
+        else:
+            flash('Invalid email or password')
     return render_template('auth/change_email.html', form=form)
+
+@auth.route('/change-email/<token>')
+@login_required
+def change_email(token):
+    if current_user.change_email(token):
+        db.session.commit()
+        flash('Your email address has been updated.')
+    else:
+        flash('Invalid request.')
+    return redirect(url_for('main.index'))
 
 @auth.route('/reset-password-request', methods=['GET', 'POST'])
 def reset_password_request():
@@ -91,7 +110,7 @@ def reset_password_request():
             token = user.generate_reset_token()
             #----TODO----
             #CHANGE EMAIL
-            send_email(current_app.config['CHANGE_EMAIL'], 'Reset Your Password', 
+            send_email(current_app.config['FLASKY_MAIL_SENDER'], 'Reset Your Password', 
             'auth/email/reset_password', user=user, token=token)
         flash('An email with instructions to reset your password has been '
               'sent to you.')
@@ -129,7 +148,7 @@ def resend_confirmation():
     token = current_user.generate_confirmation_token()
     #----TODO---- 
     #CHANGE EMAIL
-    send_email(current_app.config['CHANGE_EMAIL'], 'Confirm Your Account',
+    send_email(current_app.config['FLASKY_MAIL_SENDER'], 'Confirm Your Account',
     'auth/email/confirm', user=current_user, token=token)
     flash('A new confirmation email has been sent to you by email.')
     return redirect(url_for('main.index'))

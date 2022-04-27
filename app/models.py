@@ -1,9 +1,11 @@
 from datetime import datetime
+import json
+import hashlib
 from . import db, login_manager
 from werkzeug.security import check_password_hash, generate_password_hash
 from authlib.jose import JsonWebSignature
 from flask_login import UserMixin, AnonymousUserMixin
-from flask import current_app
+from flask import current_app, request
 
 class Permission:
     FOLLOW = 1
@@ -25,6 +27,7 @@ class User(UserMixin, db.Model):
     about_me = db.Column(db.Text())
     member_since = db.Column(db.DateTime(), default=datetime.utcnow)
     last_seen = db.Column(db.DateTime(), default=datetime.utcnow)
+    avatar_hash = db.Column(db.String(32))
 
 
     def __init__(self, **kwargs):
@@ -35,6 +38,8 @@ class User(UserMixin, db.Model):
                 self.confirmed = True
             if self.role is None:
                 self.role = Role.query.filter_by(default=True).first()
+        if self.email is not None and self.avatar_hash is None:
+            self.avatar_hash = self.gravatar_hash()
 
     @property
     def password(self):
@@ -89,6 +94,45 @@ class User(UserMixin, db.Model):
         user.password = new_password
         db.session.add(user)
         return True
+
+    def generate_email_change_token(self, new_email):
+        jws = JsonWebSignature()
+        protected =  {'alg': 'HS256'}
+        payload = '{"id": "%s", "new_email": "%s"}'%(self.id, new_email)
+        secret = current_app.config['SECRET_KEY']
+        token = jws.serialize_compact(protected, payload, secret)
+        return token
+
+    def change_email(self, token):
+        jws = JsonWebSignature()
+        try:
+            data = jws.deserialize_compact(token, current_app.config['SECRET_KEY'])
+        except:
+            return False 
+        print(data.get('payload'))      
+        if int(json.loads(data.get('payload').decode('utf-8')).get('id')) != self.id:
+            return False
+        new_email = json.loads(data.get('payload').decode('utf-8')).get('new_email')
+        if new_email is None:
+            return False
+        if self.query.filter_by(email=new_email).first() is not None:
+            return False
+        self.email = new_email
+        self.avatar_hash = self.gravatar_hash()
+        db.session.add(self)
+        return True
+
+    def gravatar_hash(self):
+        return hashlib.md5(self.email.lower().encode('utf-8')).hexdigest()
+
+    def gravatar(self, size=100, default='retro', rating='g'):
+        if request.is_secure:
+            url = 'https://secure.gravatar.com/avatar'
+        else:
+            url = 'http://www.gravatar.com/avatar'
+        hash = self.avatar_hash or self.gravatar_hash()
+        return '{url}/{hash}?s={size}&d={default}&r={rating}'.format(
+        url=url, hash=hash, size=size, default=default, rating=rating)
 
     def can(self, perm):
         return self.role is not None and self.role.has_permission(perm)

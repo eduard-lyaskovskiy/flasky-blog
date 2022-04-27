@@ -28,10 +28,10 @@ class RegistrationForm(FlaskForm):
             DataRequired(), 
             EqualTo('password2', 
             message='Passwords must match.'),
-            Regexp('^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&-+=()])(?=\\S+$).{8, 64}$',
-            0, 
-            'Passwords must have only letters, numbers, dots or '
-            'spec symbols @#$%^&-+=()')])
+                    Regexp('^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=\S+$).{8,64}$',
+                    0, 
+                    'Passwords must have only letters, capital letter or '
+                    'numbers')])
     password2 = PasswordField(
         'Confirm password', 
         validators=[DataRequired()])
@@ -49,10 +49,10 @@ class ChangePasswordForm(FlaskForm):
     old_password = PasswordField('Old password', validators=[DataRequired()])
     new_password = PasswordField('New password', validators=[DataRequired(), 
                     EqualTo('new_password_repeat', 'Passwords must match.'),
-                    Regexp('^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&-+=()])(?=\\S+$).{8, 64}$',
+                    Regexp('^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=\S+$).{8,64}$',
                     0, 
-                    'Passwords must have only letters, numbers, dots or '
-                    'spec symbols @#$%^&-+=()')])
+                    'Passwords must have only letters, capital letter or '
+                    'numbers')])
     new_password_repeat = PasswordField('Confirm new password', validators=[DataRequired()])
     submit = SubmitField('Update Password')
 
@@ -63,10 +63,10 @@ class ResetPasswordRequestForm(FlaskForm):
 class ResetPasswordForm(FlaskForm):
     new_password = PasswordField('New password', validators=[DataRequired(), 
                     EqualTo('new_password_repeat', 'Passwords must match.'),
-                    Regexp('^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&-+=()])(?=\\S+$).{8, 64}$',
+                    Regexp('^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=\S+$).{8,64}$',
                     0, 
-                    'Passwords must have only letters, numbers, dots or '
-                    'spec symbols @#$%^&-+=()')])
+                    'Passwords must have only letters, capital letter or '
+                    'numbers')])
     new_password_repeat = PasswordField('Confirm new password', validators=[DataRequired()])
     submit = SubmitField('Reset Password')
 
