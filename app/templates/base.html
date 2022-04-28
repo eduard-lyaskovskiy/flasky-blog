@@ -30,7 +30,8 @@
             <ul class="nav navbar-nav navbar-right">
                 {% if current_user.is_authenticated %}
                 <li class="dropdown">
-                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">Account <b class="caret"></b></a>
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                        <img class="img-rounded" src="{{ current_user.gravatar(size=25) }}"> Account<b class="caret"></b></a>
                     <ul class="dropdown-menu">               
                         <li><a href="{{ url_for('auth.change_password')}}">Change Password</a><email/li>
                         <li><a href="{{ url_for('auth.change_email_request')}}">Change Email</a></li>

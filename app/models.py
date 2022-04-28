@@ -1,4 +1,5 @@
 from datetime import datetime
+from email.policy import default
 import json
 import hashlib
 from . import db, login_manager
@@ -28,6 +29,7 @@ class User(UserMixin, db.Model):
     member_since = db.Column(db.DateTime(), default=datetime.utcnow)
     last_seen = db.Column(db.DateTime(), default=datetime.utcnow)
     avatar_hash = db.Column(db.String(32))
+    posts = db.relationship('Post', backref="author", lazy="dynamic")
 
 
     def __init__(self, **kwargs):
@@ -147,6 +149,13 @@ class User(UserMixin, db.Model):
 
     def __repr__(self):
         return '<User %r>' % self.username
+
+class Post(db.Model):
+    __tablename__ = 'posts'
+    id = db.Column(db.Integer, primary_key=True)
+    body = db.Column(db.Text)
+    timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'))
 
 class Role(db.Model):
     __tablename__ = 'roles'

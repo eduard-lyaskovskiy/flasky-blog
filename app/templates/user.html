@@ -1,5 +1,8 @@
 {% extends "base.html" %}
+{% import "_macros.html" as macros %}
+
 {% block title %} Flasky - {{ user.username }} {% endblock %}
+
 {% block page_content %}
 <div class="page-header">
     <img class="img-rounded profile-thumbnail" src="{{ user.gravatar(size=256) }}">
@@ -33,4 +36,11 @@
         </p>
     </div>
 </div>
+<h3>Posts by {{ user.username }}</h3>
+{% include '_posts.html' %}
+{% if pagination %}
+<div class="pagination">
+    {{ macros.pagination_widget(pagination, '.index') }}
+</div>
+{% endif %}
 {% endblock %}
