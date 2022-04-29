@@ -1,4 +1,4 @@
-from flask import render_template, request, session, redirect, url_for, current_app, flash
+from flask import render_template, request, session, redirect, url_for, current_app, flash, abort
 from .. import db
 from ..models import User, Role, Post
 from ..email import send_email
@@ -24,6 +24,27 @@ def index():
     posts = pagination.items
     return render_template('index.html',form=form, posts=posts, pagination=pagination)
 
+@main.route('/post/<int:id>')
+def post(id):
+    post = Post.query.get_or_404(id)
+    return render_template('post.html', posts=[post])
+
+@main.route('/edit/<int:id>', methods=['GET', 'POST'])
+def edit(id):
+    post = Post.query.get_or_404(id)
+    if current_user.id != post.author_id and \
+    not current_user.can(Permission.ADMIN):
+        abort(403)
+    form = PostForm()
+    if form.validate_on_submit():
+        post.body = form.body.data
+        db.session.add(post)
+        db.session.commit()
+        flash('The post has been updated.')
+        return redirect(url_for('.post', id = post.id))
+    form.body.data = post.body
+    return render_template('edit_post.html', form=form)
+    
 @main.route('/user/<int:id>')
 def user(id):
     user = User.query.get_or_404(id)

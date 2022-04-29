@@ -1,12 +1,13 @@
-from datetime import datetime
-from email.policy import default
 import json
 import hashlib
+import bleach
 from . import db, login_manager
 from werkzeug.security import check_password_hash, generate_password_hash
 from authlib.jose import JsonWebSignature
 from flask_login import UserMixin, AnonymousUserMixin
 from flask import current_app, request
+from datetime import datetime
+from markdown import markdown
 
 class Permission:
     FOLLOW = 1
@@ -154,8 +155,20 @@ class Post(db.Model):
     __tablename__ = 'posts'
     id = db.Column(db.Integer, primary_key=True)
     body = db.Column(db.Text)
+    body_html = db.Column(db.Text)
     timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
     author_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+
+    @staticmethod
+    def on_changed_body(target, value, old_value, initiator):
+        allowed_tags = ['a', 'abbr', 'acronym', 'b', 'blockquote', 'code',
+                        'em', 'i', 'li', 'ol', 'pre', 'strong', 'ul',
+                        'h1', 'h2', 'h3', 'p']
+        target.body_html = bleach.linkify(
+            bleach.clean(markdown(value, output_format='html'),
+            tags=allowed_tags, strip=True))
+
+db.event.listen(Post.body, 'set', Post.on_changed_body)
 
 class Role(db.Model):
     __tablename__ = 'roles'
